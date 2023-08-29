@@ -1,63 +1,99 @@
-import { useCallback, useEffect, useState } from "react";
-import NavBar from "./Components/NavBar"
-import Search from "./Components/Search"
-import {AiFillPlusCircle} from 'react-icons/ai'
-import {collection,getDocs} from 'firebase/firestore'
-import {db} from './config/firebase'
+import Navbar from "./components/Navbar";
+import { FiSearch } from "react-icons/fi";
+import { AiFillPlusCircle } from "react-icons/ai";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "./config/firebase";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import ContactCard from "./Components/ContactCard";
-import Modal from "./Components/Modal";
+import AddAndUpdateContact from "./Components/AddAndUpdateContact";
+import UseDisclosure from "./Hooks/UseDisclosure";
+import NotFoundContact from './Components/NotFoundContact'
+const App = () => {
+  const [contacts, setContacts] = useState([]);
 
+  const { isOpen, onClose, onOpen } = UseDisclosure();
 
-function App() {
+  useEffect(() => {
+    const getContacts = async () => {
+      try {
+        const contactsRef = collection(db, "contacts");
 
-  const [contacts,setContacts] = useState([]);
-  const [isopen,setIsopen] = useState(false);
+        onSnapshot(contactsRef, (snapshot) => {
+          const contactLists = snapshot.docs.map((doc) => {
+            return {
+              id: doc.id,
+              ...doc.data(),
+            };
+          });
+          setContacts(contactLists);
+          return contactLists;
+        });
+      } catch (error) {
+        console.log(error);
+      }
+    };
 
+    getContacts();
+  }, []);
 
-  const onOpen = () =>{
-    setIsopen(true);
-  }
+  const filterContacts = (e) => {
+    const value = e.target.value;
 
-  const onClose = () =>{
-    setIsopen(false);
-  }
+    const contactsRef = collection(db, "contacts");
 
-  useEffect(()=>{
-   const getContacts= async ()=>{ 
-    try {
-        const  contactRef = collection(db,"contact");
-        const  contactSnap = await getDocs(contactRef);
-        const contactList = contactSnap.docs.map((doc)=>{
-          return{
-            id: doc.id,
-            ...doc.data(),
-          }
-        })
-        setContacts(contactList);
-    } catch (error) {
-      console.log(error);
-    }
-   }
-   getContacts();
-  },[])
+    onSnapshot(contactsRef, (snapshot) => {
+      const contactLists = snapshot.docs.map((doc) => {
+        return {
+          id: doc.id,
+          ...doc.data(),
+        };
+      });
+
+      const filteredContacts = contactLists.filter((contact) =>
+        contact.name.toLowerCase().includes(value.toLowerCase())
+      );
+
+      setContacts(filteredContacts);
+
+      return filteredContacts;
+    });
+  };
 
   return (
     <>
-    <div className="max-w-[20rem] mx-auto px-4">
-      <NavBar />
-      <div className="flex gap-2">
-        <Search />
-        <AiFillPlusCircle className="text-white text-3xl cursor-pointer" onClick={onOpen} />
+      <div className="mx-auto max-w-[370px] px-4">
+        <Navbar />
+        <div className="flex gap-2">
+          <div className="relative flex flex-grow items-center">
+            <FiSearch className="absolute ml-1 text-3xl text-white" />
+            <input
+              onChange={filterContacts}
+              type="text"
+              className=" h-10 flex-grow rounded-md border border-white bg-transparent pl-9 text-white"
+            />
+          </div>
+
+          <AiFillPlusCircle
+            onClick={onOpen}
+            className="cursor-pointer text-5xl text-white"
+          />
+        </div>
+        <div className="mt-4 flex flex-col gap-3">
+          {contacts.length <= 0 ? (
+            <NotFoundContact />
+          ) : (
+            contacts.map((contact) => (
+              <ContactCard key={contact.id} contact={contact} />
+            ))
+          )}
+        </div>
       </div>
-      <div className="my-2 flex flex-col gap-2">
-        {contacts.map((contact) => (
-           <ContactCard contact={contact}/>
-        ))}
-      </div>
-    </div>
-    <Modal isopen={isopen} onClose={onClose} />
+      <ToastContainer position="bottom-center" />
+      <AddAndUpdateContact onClose={onClose} isOpen={isOpen} />
     </>
   );
-}
+};
 
-export default App
+export default App;
